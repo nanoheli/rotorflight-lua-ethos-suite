@@ -5,6 +5,7 @@ local folder = "xdfly"
 local ESC = assert(loadfile("app/pages/esc/" .. folder .. "/init.lua"))()
 local mspHeaderBytes = ESC.mspHeaderBytes
 local mspSignature = ESC.mspSignature
+local activateWakeup = false
 
 local lowVoltage = {"OFF", "2.7V", "3.0V", "3.2V", "3.4V", "3.6V", "3.8V"}
 local timing = {"Auto", "Low", "Medium", "High"}
@@ -22,7 +23,7 @@ fields[#fields + 1] = {t = "Acceleration",  vals = {mspHeaderBytes + 18, mspHead
 fields[#fields + 1] = {t = "Brake Type", vals = {mspHeaderBytes + 26, mspHeaderBytes + 25}, tableIdxInc = -1, table = brakeType}
 fields[#fields + 1] = {t = "Brake Force", min = 0, max = 100, default = 0, vals = {mspHeaderBytes + 28, mspHeaderBytes + 27}, unit = "%"}
 fields[#fields + 1] = {t = "SR Function", vals = {mspHeaderBytes + 30, mspHeaderBytes + 29}, tableIdxInc = -1, table = srFunc}
-fields[#fields + 1] = {t = "Capacity Correction", min = 0, max = 20, default = 10, vals = {mspHeaderBytes + 32, mspHeaderBytes + 31}, unit = "%"}
+fields[#fields + 1] = {t = "Capacity Correction", min = 0, max = 20, default = 10, offset = -10 , vals = {mspHeaderBytes + 32, mspHeaderBytes + 31}, unit = "%"}
 fields[#fields + 1] = {t = "Auto Restart", tableIdxInc = -1, table = autoRestart ,vals = {mspHeaderBytes + 20, mspHeaderBytes + 19}}
 
 
@@ -31,6 +32,7 @@ local foundEscDone = false
 
 function postLoad()
     rfsuite.app.triggers.isReady = true
+    activateWakeup = true
 end
 
 local function onNavMenu(self)
@@ -50,6 +52,21 @@ local function event(widget, category, value, x, y)
     return false
 end
 
+local function wakeup(self)
+    if activateWakeup == true and rfsuite.bg.msp.mspQueue:isProcessed() then
+        for i, f in ipairs(rfsuite.app.Page.fields) do 
+            print("v:" .. f.t .. " " .. rfsuite.app.Page.values[f.vals[2]] .. " " .. rfsuite.app.Page.values[f.vals[1]])
+            if (rfsuite.app.Page.values[f.vals[2]] & 0xF0) ~= 0 then
+                -- rfsuite.app.Page.values[f.vals[2]] = (rfsuite.app.Page.values[f.vals[2]] & 0x7F)
+                rfsuite.app.formFields[i]:enable(false)
+                print("v:" .. f.t .. " " .. rfsuite.app.Page.values[f.vals[2]] .. " " .. rfsuite.app.Page.values[f.vals[1]])
+                print("element disabled")
+            end
+        end
+        activateWakeup = false
+    end
+end
+
 return {
     read = 217, -- msp_ESC_PARAMETERS
     write = 218, -- msp_SET_ESC_PARAMETERS
@@ -60,7 +77,7 @@ return {
     labels = labels,
     fields = fields,
     escinfo = escinfo,
-    simulatorResponse = {115, 0, 6, 18, 0, 1, 0, 1, 0, 2, 0, 84, 0, 1, 0, 5, 0, 4, 0, 2, 0, 1, 0, 92, 0, 1, 0, 0, 0, 50, 0, 1, 0, 11, 0, 18, 0, 0},
+    simulatorResponse = {115, 0, 6, 18, 0, 1, 0, 1, 0, 2, 240, 84, 0, 1, 0, 5, 0, 4, 0, 2, 0, 1, 0, 92, 0, 1, 0, 0, 0, 50, 0, 1, 0, 11, 0, 18, 0, 0,},
     svTiming = 0,
     svFlags = 0,
     postLoad = postLoad,
@@ -68,5 +85,6 @@ return {
     onNavMenu = onNavMenu,
     event = event,
     pageTitle = "ESC / XDFLY / Advanced",
-    headerLine = rfsuite.escHeaderLineText
+    headerLine = rfsuite.escHeaderLineText,
+    wakeup = wakeup
 }

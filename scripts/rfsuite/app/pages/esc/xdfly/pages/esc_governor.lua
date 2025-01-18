@@ -5,6 +5,7 @@ local folder = "xdfly"
 local ESC = assert(loadfile("app/pages/esc/" .. folder .. "/init.lua"))()
 local mspHeaderBytes = ESC.mspHeaderBytes
 local mspSignature = ESC.mspSignature
+local activateWakeup = false
 
 local foundEsc = false
 local foundEscDone = false
@@ -17,6 +18,7 @@ fields[#fields + 1] = {t = "Gov-I",  vals = {mspHeaderBytes + 16, mspHeaderBytes
 
 function postLoad()
     rfsuite.app.triggers.isReady = true
+    activateWakeup = true
 end
 
 local function onNavMenu(self)
@@ -36,6 +38,21 @@ local function event(widget, category, value, x, y)
     return false
 end
 
+local function wakeup(self)
+    if activateWakeup == true and rfsuite.bg.msp.mspQueue:isProcessed() then
+        for i, f in ipairs(rfsuite.app.Page.fields) do 
+            print("v:" .. f.t .. " " .. rfsuite.app.Page.values[f.vals[2]] .. " " .. rfsuite.app.Page.values[f.vals[1]])
+            if (rfsuite.app.Page.values[f.vals[2]] & 0xF0) ~= 0 then
+                -- rfsuite.app.Page.values[f.vals[2]] = (rfsuite.app.Page.values[f.vals[2]] & 0x7F)
+                rfsuite.app.formFields[i]:enable(false)
+                print("v:" .. f.t .. " " .. rfsuite.app.Page.values[f.vals[2]] .. " " .. rfsuite.app.Page.values[f.vals[1]])
+                print("element disabled")
+            end
+        end
+        activateWakeup = false
+    end
+end
+
 return {
     read = 217, -- msp_ESC_PARAMETERS
     write = 218, -- msp_SET_ESC_PARAMETERS
@@ -52,6 +69,6 @@ return {
     onNavMenu = onNavMenu,
     event = event,
     pageTitle = "ESC / XDFLY / Governor",
-    headerLine = rfsuite.escHeaderLineText
-
+    headerLine = rfsuite.escHeaderLineText,
+    wakeup = wakeup
 }
